@@ -1,0 +1,4 @@
+services:
+    # A file upload field.
+    UnitedCMS\StorageBundle\Field\Types\FileFieldType:
+        tags: [united_cms.field_type]

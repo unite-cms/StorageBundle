@@ -37,7 +37,12 @@ class ControllerTest extends DatabaseAwareTestCase {
         "title": "CT 1",
         "identifier": "ct1", 
         "fields": [
-            { "title": "File", "identifier": "file", "type": "file" }
+            { "title": "File", "identifier": "file", "type": "file", "settings": { "file_types": "txt" } },
+            { "title": "Nested", "identifier": "nested", "type": "collection", "settings": 
+              { "fields": [
+                { "title": "File", "identifier": "file", "type": "file", "settings": { "file_types": "txt" } }
+              ]}
+            }
         ],
         "permissions": {
           "view content": [ "ROLE_EDITOR" ],
@@ -51,7 +56,12 @@ class ControllerTest extends DatabaseAwareTestCase {
         "title": "CT 2",
         "identifier": "ct2", 
         "fields": [
-            { "title": "File", "identifier": "file", "type": "file" }
+            { "title": "File", "identifier": "file", "type": "file", "settings": { "file_types": "txt" } },
+            { "title": "Nested", "identifier": "nested", "type": "collection", "settings": 
+              { "fields": [
+                { "title": "File", "identifier": "file", "type": "file", "settings": { "file_types": "txt" } }
+              ]}
+            }
         ],
         "permissions": {
           "view content": [ "ROLE_ADMINISTRATOR" ],
@@ -188,18 +198,81 @@ class ControllerTest extends DatabaseAwareTestCase {
     $this->assertEquals(403, $this->client->getResponse()->getStatusCode());
 
     // Try to pre sign for invalid content type field.
+    $this->client->request('POST', $this->container->get('router')->generate('unitedcms_storage_sign_uploadcontenttype', [
+      'organization' => $this->org1->getIdentifier(),
+      'domain' => $this->domain1->getIdentifier(),
+      'content_type' => 'ct1',
+      'field' => 'foo',
+    ]));
+    $this->assertEquals(400, $this->client->getResponse()->getStatusCode());
 
     // Try to pre sign for invalid setting type field.
+    $this->client->request('POST', $this->container->get('router')->generate('unitedcms_storage_sign_uploadsettingtype', [
+      'organization' => $this->org1->getIdentifier(),
+      'domain' => $this->domain1->getIdentifier(),
+      'setting_type' => 'st1',
+      'field' => 'foo',
+    ]));
+    $this->assertEquals(400, $this->client->getResponse()->getStatusCode());
 
     // Try to pre sign for invalid content type nested field.
+    $this->client->request('POST', $this->container->get('router')->generate('unitedcms_storage_sign_uploadcontenttype', [
+      'organization' => $this->org1->getIdentifier(),
+      'domain' => $this->domain1->getIdentifier(),
+      'content_type' => 'ct1',
+      'field' => 'foo/baa',
+    ]));
+    $this->assertEquals(400, $this->client->getResponse()->getStatusCode());
+
+    $this->client->request('POST', $this->container->get('router')->generate('unitedcms_storage_sign_uploadcontenttype', [
+      'organization' => $this->org1->getIdentifier(),
+      'domain' => $this->domain1->getIdentifier(),
+      'content_type' => 'ct1',
+      'field' => 'nested/baa',
+    ]));
+    $this->assertEquals(400, $this->client->getResponse()->getStatusCode());
 
     // Try to pre sign for invalid setting type nested field.
+    $this->client->request('POST', $this->container->get('router')->generate('unitedcms_storage_sign_uploadsettingtype', [
+      'organization' => $this->org1->getIdentifier(),
+      'domain' => $this->domain1->getIdentifier(),
+      'setting_type' => 'st1',
+      'field' => 'foo/baa',
+    ]));
+    $this->assertEquals(400, $this->client->getResponse()->getStatusCode());
+
+    $this->client->request('POST', $this->container->get('router')->generate('unitedcms_storage_sign_uploadsettingtype', [
+      'organization' => $this->org1->getIdentifier(),
+      'domain' => $this->domain1->getIdentifier(),
+      'setting_type' => 'st1',
+      'field' => 'nested/baa',
+    ]));
+    $this->assertEquals(400, $this->client->getResponse()->getStatusCode());
 
     // Try to pre sign invalid file type.
+    $this->client->request('POST', $this->container->get('router')->generate('unitedcms_storage_sign_uploadcontenttype', [
+      'organization' => $this->org1->getIdentifier(),
+      'domain' => $this->domain1->getIdentifier(),
+      'content_type' => 'ct1',
+      'field' => 'file',
+      'filename' => 'unsupported.unsupported',
+    ]));
+    $this->assertEquals(400, $this->client->getResponse()->getStatusCode());
+
+    $this->client->request('POST', $this->container->get('router')->generate('unitedcms_storage_sign_uploadsettingtype', [
+      'organization' => $this->org1->getIdentifier(),
+      'domain' => $this->domain1->getIdentifier(),
+      'setting_type' => 'st1',
+      'field' => 'file',
+      'filename' => 'unsupported.unsupported',
+    ]));
+    $this->assertEquals(400, $this->client->getResponse()->getStatusCode());
 
     // Try to pre sign filename with special chars.
+    // TODO: Should return sanitized filename.
 
     // Try to pre sign valid file.
+    // TODO: Should return pre signed url.
 
   }
 
