@@ -1,0 +1,27 @@
+{
+    "name": "united-cms/storage-bundle",
+    "type": "symfony-bundle",
+    "description": "Provides fields and views for managing files and images in a S3 storage.",
+    "require": {
+        "united-cms/core-bundle": "0@dev"
+    },
+    "autoload": {
+        "psr-4": { "UnitedCMS\\StorageBundle\\": "" },
+        "exclude-from-classmap": [
+            "/Tests/"
+        ]
+    },
+    "autoload-dev": {
+        "psr-4": { "Tests\\app\\": "Tests/app/" }
+    },
+    "authors": [
+        {
+            "name": "Franz Wilding",
+            "email": "franz@unite.co.at"
+        },
+        {
+            "name": "Stefan Kamsker",
+            "email": "stefan@unite.co.at"
+        }
+    ]
+}
