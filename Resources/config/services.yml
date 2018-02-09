@@ -2,3 +2,9 @@ services:
     # A file upload field.
     UnitedCMS\StorageBundle\Field\Types\FileFieldType:
         tags: [united_cms.field_type]
+
+    UnitedCMS\StorageBundle\SchemaType\StorageFileType:
+        tags: [united_cms.graphql.schema_type]
+
+    UnitedCMS\StorageBundle\SchemaType\StorageFileInputType:
+        tags: [united_cms.graphql.schema_type]

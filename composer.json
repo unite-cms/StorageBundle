@@ -3,7 +3,9 @@
     "type": "symfony-bundle",
     "description": "Provides fields and views for managing files and images in a S3 storage.",
     "require": {
-        "united-cms/core-bundle": "0@dev"
+        "united-cms/core-bundle": "0@dev",
+        "aws/aws-sdk-php": "^3.52",
+        "ramsey/uuid": "^3.7"
     },
     "autoload": {
         "psr-4": { "UnitedCMS\\StorageBundle\\": "" },

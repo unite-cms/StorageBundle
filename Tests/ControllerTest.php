@@ -8,6 +8,7 @@
 
 namespace UnitedCMS\StorageBundle\Tests;
 
+use Aws\S3\S3Client;
 use Symfony\Component\BrowserKit\Cookie;
 use Symfony\Component\HttpKernel\Client;
 use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
@@ -17,7 +18,6 @@ use UnitedCMS\CoreBundle\Entity\Organization;
 use UnitedCMS\CoreBundle\Entity\OrganizationMember;
 use UnitedCMS\CoreBundle\Entity\User;
 use UnitedCMS\CoreBundle\Tests\DatabaseAwareTestCase;
-
 
 class ControllerTest extends DatabaseAwareTestCase {
 
@@ -37,10 +37,10 @@ class ControllerTest extends DatabaseAwareTestCase {
         "title": "CT 1",
         "identifier": "ct1", 
         "fields": [
-            { "title": "File", "identifier": "file", "type": "file", "settings": { "file_types": "txt" } },
+            { "title": "File", "identifier": "file", "type": "file", "settings": { "file_types": "txt", "bucket": { "endpoint": "https://example.com", "key": "XXX", "secret": "XXX", "bucket": "foo" } } },
             { "title": "Nested", "identifier": "nested", "type": "collection", "settings": 
               { "fields": [
-                { "title": "File", "identifier": "file", "type": "file", "settings": { "file_types": "txt" } }
+                { "title": "File", "identifier": "file", "type": "file", "settings": { "file_types": "txt", "bucket": { "endpoint": "https://example.com", "key": "XXX", "secret": "XXX", "bucket": "foo" } } }
               ]}
             }
         ],
@@ -56,10 +56,10 @@ class ControllerTest extends DatabaseAwareTestCase {
         "title": "CT 2",
         "identifier": "ct2", 
         "fields": [
-            { "title": "File", "identifier": "file", "type": "file", "settings": { "file_types": "txt" } },
+            { "title": "File", "identifier": "file", "type": "file", "settings": { "file_types": "txt", "bucket": { "endpoint": "https://example.com", "key": "XXX", "secret": "XXX", "bucket": "foo" } } },
             { "title": "Nested", "identifier": "nested", "type": "collection", "settings": 
               { "fields": [
-                { "title": "File", "identifier": "file", "type": "file", "settings": { "file_types": "txt" } }
+                { "title": "File", "identifier": "file", "type": "file", "settings": { "file_types": "txt", "bucket": { "endpoint": "https://example.com", "key": "XXX", "secret": "XXX", "bucket": "foo" } } }
               ]}
             }
         ],
@@ -77,7 +77,7 @@ class ControllerTest extends DatabaseAwareTestCase {
         "title": "ST 1",
         "identifier": "st1", 
         "fields": [
-            { "title": "File", "identifier": "file", "type": "file" }
+            { "title": "File", "identifier": "file", "type": "file", "settings": { "file_types": "txt", "bucket": { "endpoint": "https://example.com", "key": "XXX", "secret": "XXX", "bucket": "foo" } }  }
         ],
         "permissions": {
           "view setting": [ "ROLE_EDITOR" ],
@@ -88,7 +88,7 @@ class ControllerTest extends DatabaseAwareTestCase {
         "title": "ST 2",
         "identifier": "st2", 
         "fields": [
-            { "title": "File", "identifier": "file", "type": "file" }
+            { "title": "File", "identifier": "file", "type": "file", "settings": { "file_types": "txt", "bucket": { "endpoint": "https://example.com", "key": "XXX", "secret": "XXX", "bucket": "foo" } }  }
         ],
         "permissions": {
           "view setting": [ "ROLE_ADMINISTRATOR" ],
@@ -202,8 +202,9 @@ class ControllerTest extends DatabaseAwareTestCase {
       'organization' => $this->org1->getIdentifier(),
       'domain' => $this->domain1->getIdentifier(),
       'content_type' => 'ct1',
+    ]), [
       'field' => 'foo',
-    ]));
+    ]);
     $this->assertEquals(400, $this->client->getResponse()->getStatusCode());
 
     // Try to pre sign for invalid setting type field.
@@ -211,8 +212,9 @@ class ControllerTest extends DatabaseAwareTestCase {
       'organization' => $this->org1->getIdentifier(),
       'domain' => $this->domain1->getIdentifier(),
       'setting_type' => 'st1',
+    ]), [
       'field' => 'foo',
-    ]));
+    ]);
     $this->assertEquals(400, $this->client->getResponse()->getStatusCode());
 
     // Try to pre sign for invalid content type nested field.
@@ -220,16 +222,18 @@ class ControllerTest extends DatabaseAwareTestCase {
       'organization' => $this->org1->getIdentifier(),
       'domain' => $this->domain1->getIdentifier(),
       'content_type' => 'ct1',
+    ]), [
       'field' => 'foo/baa',
-    ]));
+    ]);
     $this->assertEquals(400, $this->client->getResponse()->getStatusCode());
 
     $this->client->request('POST', $this->container->get('router')->generate('unitedcms_storage_sign_uploadcontenttype', [
       'organization' => $this->org1->getIdentifier(),
       'domain' => $this->domain1->getIdentifier(),
       'content_type' => 'ct1',
+    ]), [
       'field' => 'nested/baa',
-    ]));
+    ]);
     $this->assertEquals(400, $this->client->getResponse()->getStatusCode());
 
     // Try to pre sign for invalid setting type nested field.
@@ -237,16 +241,18 @@ class ControllerTest extends DatabaseAwareTestCase {
       'organization' => $this->org1->getIdentifier(),
       'domain' => $this->domain1->getIdentifier(),
       'setting_type' => 'st1',
+    ]), [
       'field' => 'foo/baa',
-    ]));
+    ]);
     $this->assertEquals(400, $this->client->getResponse()->getStatusCode());
 
     $this->client->request('POST', $this->container->get('router')->generate('unitedcms_storage_sign_uploadsettingtype', [
       'organization' => $this->org1->getIdentifier(),
       'domain' => $this->domain1->getIdentifier(),
       'setting_type' => 'st1',
+    ]), [
       'field' => 'nested/baa',
-    ]));
+    ]);
     $this->assertEquals(400, $this->client->getResponse()->getStatusCode());
 
     // Try to pre sign invalid file type.
@@ -254,26 +260,88 @@ class ControllerTest extends DatabaseAwareTestCase {
       'organization' => $this->org1->getIdentifier(),
       'domain' => $this->domain1->getIdentifier(),
       'content_type' => 'ct1',
+    ]), [
       'field' => 'file',
       'filename' => 'unsupported.unsupported',
-    ]));
+    ]);
     $this->assertEquals(400, $this->client->getResponse()->getStatusCode());
 
     $this->client->request('POST', $this->container->get('router')->generate('unitedcms_storage_sign_uploadsettingtype', [
       'organization' => $this->org1->getIdentifier(),
       'domain' => $this->domain1->getIdentifier(),
       'setting_type' => 'st1',
+    ]), [
       'field' => 'file',
       'filename' => 'unsupported.unsupported',
-    ]));
+    ]);
     $this->assertEquals(400, $this->client->getResponse()->getStatusCode());
 
     // Try to pre sign filename with special chars.
-    // TODO: Should return sanitized filename.
+    $this->client->request('POST', $this->container->get('router')->generate('unitedcms_storage_sign_uploadcontenttype', [
+      'organization' => $this->org1->getIdentifier(),
+      'domain' => $this->domain1->getIdentifier(),
+      'content_type' => 'ct1',
+    ]), [
+      'field' => 'file',
+      'filename' => 'ö Aä.*#ä+ .txt',
+    ]);
+    $this->assertEquals(200, $this->client->getResponse()->getStatusCode());
 
-    // Try to pre sign valid file.
-    // TODO: Should return pre signed url.
+    $parts = [];
+    preg_match("/https:\/\/example.com\/foo\/([a-zA-Z0-9-]+)\/_a._.txt/", $this->client->getResponse()->getContent(), $parts);
+    $this->assertCount(2, $parts);
 
+    $s3Client = new S3Client([
+      'version' => 'latest',
+      'region'  => 'us-east-1',
+      'endpoint' => 'https://example.com',
+      'use_path_style_endpoint' => true,
+      'credentials' => [
+        'key'    => 'XXX',
+        'secret' => 'XXX',
+      ],
+    ]);
+
+    $command = $s3Client->getCommand('PutObject', [
+      'Bucket' => 'foo',
+      'Key'    => $parts[1] . '/_a._.txt'
+    ]);
+
+    $presignedRequest = $s3Client->createPresignedRequest($command, '+5 minutes');
+    $this->assertEquals((string)$presignedRequest->getUri(), $this->client->getResponse()->getContent());
+
+    $this->client->request('POST', $this->container->get('router')->generate('unitedcms_storage_sign_uploadsettingtype', [
+      'organization' => $this->org1->getIdentifier(),
+      'domain' => $this->domain1->getIdentifier(),
+      'setting_type' => 'st1',
+    ]), [
+      'field' => 'file',
+      'filename' => 'ö Aä.*#ä+ .txt',
+    ]);
+    $this->assertEquals(200, $this->client->getResponse()->getStatusCode());
+
+    $parts = [];
+    preg_match("/https:\/\/example.com\/foo\/([a-zA-Z0-9-]+)\/_a._.txt/", $this->client->getResponse()->getContent(), $parts);
+    $this->assertCount(2, $parts);
+
+    $s3Client = new S3Client([
+      'version' => 'latest',
+      'region'  => 'us-east-1',
+      'endpoint' => 'https://example.com',
+      'use_path_style_endpoint' => true,
+      'credentials' => [
+        'key'    => 'XXX',
+        'secret' => 'XXX',
+      ],
+    ]);
+
+    $command = $s3Client->getCommand('PutObject', [
+      'Bucket' => 'foo',
+      'Key'    => $parts[1] . '/_a._.txt'
+    ]);
+
+    $presignedRequest = $s3Client->createPresignedRequest($command, '+5 minutes');
+    $this->assertEquals((string)$presignedRequest->getUri(), $this->client->getResponse()->getContent());
   }
 
 
