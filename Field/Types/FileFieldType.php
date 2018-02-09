@@ -2,25 +2,54 @@
 
 namespace UnitedCMS\StorageBundle\Field\Types;
 
+use Symfony\Component\Routing\Router;
 use Symfony\Component\Validator\ConstraintViolation;
+use UnitedCMS\CoreBundle\Entity\ContentTypeField;
+use UnitedCMS\CoreBundle\Entity\SettingTypeField;
 use UnitedCMS\CoreBundle\Field\FieldableFieldSettings;
 use UnitedCMS\CoreBundle\Field\FieldType;
-use UnitedCMS\CoreBundle\Form\WebComponentType;
 use UnitedCMS\CoreBundle\SchemaType\SchemaTypeManager;
+use UnitedCMS\StorageBundle\Form\StorageFileType;
 
 class FileFieldType extends FieldType
 {
     const TYPE                      = "file";
-    const FORM_TYPE                 = WebComponentType::class;
+    const FORM_TYPE                 = StorageFileType::class;
     const SETTINGS                  = ['file_types', 'bucket'];
     const REQUIRED_SETTINGS         = ['bucket'];
 
+    private $router;
+
+    public function __construct(Router $router)
+    {
+        $this->router = $router;
+    }
+
     function getFormOptions(): array
     {
+        $url = null;
+
+        if($this->field instanceof ContentTypeField) {
+            $url = $this->router->generate('unitedcms_storage_sign_uploadcontenttype', [
+              'organization' => $this->field->getEntity()->getDomain()->getOrganization()->getIdentifier(),
+              'domain' => $this->field->getEntity()->getDomain()->getIdentifier(),
+              'content_type' => $this->field->getEntity()->getIdentifier(),
+            ], Router::ABSOLUTE_URL);
+        }
+
+        if($this->field instanceof SettingTypeField) {
+            $url = $this->router->generate('unitedcms_storage_sign_uploadsettingtype', [
+              'organization' => $this->field->getEntity()->getDomain()->getOrganization()->getIdentifier(),
+              'domain' => $this->field->getEntity()->getDomain()->getIdentifier(),
+              'content_type' => $this->field->getEntity()->getIdentifier(),
+            ], Router::ABSOLUTE_URL);
+        }
+
         return array_merge(parent::getFormOptions(), [
-          'tag' => 'united-cms-storage-file-field',
           'attr' => [
             'file-types' => $this->field->getSettings()->file_types,
+            'field-path' => $this->field->getIdentifier(),
+            'upload-sign-url' => $url
           ],
         ]);
     }

@@ -51,6 +51,7 @@ twig:
     strict_variables: '%kernel.debug%'
     form_themes:
         - '@UnitedCMSCore/Form/uikit_layout.html.twig'
+        - '@UnitedCmsStorage/Form/form_widgets.html.twig'
     globals:
         united: '@united.cms.manager'
 
