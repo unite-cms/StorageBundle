@@ -34,6 +34,10 @@ class StorageFileInputType extends InputObjectType
                 'type' => Type::nonNull(Type::id()),
                 'description' => 'An UUID identifier for this file',
               ],
+              'checksum' => [
+                'type' => Type::nonNull(Type::string()),
+                'description' => 'A checksum for uuid and filename, created by united CMS.',
+              ],
             ],
           ]
         );

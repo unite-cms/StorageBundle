@@ -10,6 +10,7 @@ use UnitedCMS\CoreBundle\Entity\Content;
 use UnitedCMS\CoreBundle\Entity\User;
 use UnitedCMS\CoreBundle\Field\FieldableFieldSettings;
 use UnitedCMS\CoreBundle\Tests\Field\FieldTypeTestCase;
+use UnitedCMS\StorageBundle\Model\PreSignedUrl;
 
 class FileFieldTypeTest extends FieldTypeTestCase
 {
@@ -176,6 +177,7 @@ class FileFieldTypeTest extends FieldTypeTestCase
             size: 12345,
             type: "image/jpeg",
             id: "XXX-YYY-ZZZ",
+            checksum: "XXX"
           }
         }
       ) {
@@ -190,6 +192,37 @@ class FileFieldTypeTest extends FieldTypeTestCase
        }
     }');
     $result = json_decode(json_encode($result->toArray(true)));
+
+    // Checksum should be invalid.
+    $this->assertEquals('ERROR: validation.invalid_checksum', trim($result->errors[0]->message));
+
+    // Try with valid checksum.
+    $preSignedUrl = new PreSignedUrl('', "XXX-YYY-ZZZ", 'cat.jpg');
+
+      $result = GraphQL::executeQuery($schema, 'mutation { 
+      createCt1(
+        data: {
+          f1: {
+            name: "cat.jpg",
+            size: 12345,
+            type: "image/jpeg",
+            id: "XXX-YYY-ZZZ",
+            checksum: "' . $preSignedUrl->sign($this->container->getParameter('kernel.secret')) . '"
+          }
+        }
+      ) {
+        id,
+        f1 {
+          name,
+          size,
+          type,
+          id,
+          url
+        }
+       }
+    }');
+    $result = json_decode(json_encode($result->toArray(true)));
+    
     $this->assertNotEmpty($result->data->createCt1->id);
     $content = $this->em->getRepository('UnitedCMSCoreBundle:Content')->find($result->data->createCt1->id);
     $this->assertNotNull($content);

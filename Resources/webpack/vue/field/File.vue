@@ -35,6 +35,7 @@
         <input type="hidden" :name="name + '[type]'" :value="fileType" />
         <input type="hidden" :name="name + '[size]'" :value="fileSize" />
         <input type="hidden" :name="name + '[id]'" :value="fileId" />
+        <input type="hidden" :name="name + '[checksum]'" :value="checksum" />
     </div>
 </template>
 
@@ -51,6 +52,7 @@
                 fileType: value.type,
                 fileSize: value.size,
                 fileId: value.id,
+                checksum: null,
                 error: null,
                 loading: false
             };
@@ -74,7 +76,10 @@
         mounted() {
 
             // Init upload element.
-            let tmpFile = null;
+            let tmpFileName = null;
+            let tmpFileSize = null;
+            let tmpFileType = null;
+            let tmpChecksum = null;
             let tmpId = null;
             let t = this;
 
@@ -90,22 +95,32 @@
                     this.loading = true;
                 },
                 completeAll: () => {
-                    this.fileName = tmpFile.name;
-                    this.fileSize = tmpFile.size;
+                    this.fileName = tmpFileName;
+                    this.fileSize = tmpFileSize;
+                    this.fileType = tmpFileType;
                     this.fileId = tmpId;
-                    tmpFile = null;
+                    this.checksum = tmpChecksum;
+                    tmpFileName = null;
+                    tmpFileSize = null;
+                    tmpChecksum = null;
                     tmpId = null;
                     this.loading = false;
                 },
                 error: (error) => {
                     this.error = error;
-                    tmpFile = null;
+                    tmpFileName = null;
+                    tmpFileSize = null;
+                    tmpFileType = null;
+                    tmpChecksum = null;
                     tmpId = null;
                     this.loading = false;
                 },
                 fail: (error) => {
                     this.error = error;
-                    tmpFile = null;
+                    tmpFileName = null;
+                    tmpFileSize = null;
+                    tmpFileType = null;
+                    tmpChecksum = null;
                     tmpId = null;
                     this.loading = false;
                 }
@@ -121,7 +136,7 @@
                     return;
                 }
 
-                tmpFile = files[0];
+                let tmpFile = files[0];
 
                 function match(pattern, path) {
                     return path.match(new RegExp(`^${pattern.replace(/\//g, '\\/').replace(/\*\*/g, '(\\/[^\\/]+)*').replace(/\*/g, '[^\\/]+').replace(/((?!\\))\?/g, '$1.')}$`, 'i'));
@@ -140,9 +155,16 @@
                     method: 'POST',
                     data: data
                 }).then((result) => {
-                    this.url = result.response;
-                    let urlParts = this.url.split('/');
-                    tmpId = urlParts[urlParts.length - 2];
+
+                    // Temporary save the parameter of this file. If upload is successful, we save them to the component.
+                    let preSignedUrl = JSON.parse(result.responseText);
+                    this.url = preSignedUrl.pre_signed_url;
+                    tmpId = preSignedUrl.uuid;
+                    tmpFileSize = tmpFile.size;
+                    tmpFileType = tmpFile.type;
+                    tmpFileName = preSignedUrl.filename;
+                    tmpChecksum = preSignedUrl.checksum;
+
                     UIkit.components.upload.options.methods.upload.call(this, [tmpFile]);
                 }, () => {
                     t.error = 'Cannot sign file for uploading';
@@ -165,6 +187,7 @@
                     this.fileSize = null;
                     this.fileId = null;
                     this.fileType = null;
+                    this.checksum = null;
                 }, () => {});
             }
         }

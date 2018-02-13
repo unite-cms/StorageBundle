@@ -2,7 +2,7 @@ services:
     # A file upload field.
     UnitedCMS\StorageBundle\Field\Types\FileFieldType:
         tags: [united_cms.field_type]
-        arguments: ['@router.default']
+        arguments: ['@router.default', '%kernel.secret%']
 
     UnitedCMS\StorageBundle\SchemaType\StorageFileType:
         tags: [united_cms.graphql.schema_type]

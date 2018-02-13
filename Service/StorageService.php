@@ -18,6 +18,7 @@ use UnitedCMS\CoreBundle\Entity\SettingType;
 use UnitedCMS\CoreBundle\Entity\SettingTypeField;
 use UnitedCMS\CoreBundle\Field\FieldableFieldSettings;
 use UnitedCMS\StorageBundle\Field\Types\FileFieldType;
+use UnitedCMS\StorageBundle\Model\PreSignedUrl;
 
 class StorageService {
 
@@ -85,7 +86,7 @@ class StorageService {
    * @param array $bucket_settings
    * @param string $allowed_file_types
    *
-   * @return string
+   * @return PreSignedUrl
    */
   public static function createPreSignedUploadUrl(string $filename, array $bucket_settings, string $allowed_file_types = '*') {
 
@@ -112,6 +113,8 @@ class StorageService {
       throw new \InvalidArgumentException('File type "' . $filenameextension . '" not supported');
     }
 
+    $uuid = (string) Uuid::uuid1();
+
     // Return pre-signed url
     $s3Client = new S3Client([
       'version' => 'latest',
@@ -126,10 +129,14 @@ class StorageService {
 
     $command = $s3Client->getCommand('PutObject', [
       'Bucket' => $bucket_settings['bucket'],
-      'Key'    => (string) Uuid::uuid1() . '/' . $filename,
+      'Key'    => $uuid . '/' . $filename,
     ]);
 
-    return (string) $s3Client->createPresignedRequest($command, '+5 minutes')->getUri();
+    return new PreSignedUrl(
+      (string) $s3Client->createPresignedRequest($command, '+5 minutes')->getUri(),
+      $uuid,
+      $filename
+    );
   }
 
   /**
@@ -139,7 +146,7 @@ class StorageService {
    * @param Fieldable $fieldable
    * @param string $field_path
    *
-   * @return string
+   * @return PreSignedUrl
    */
   public static function createPreSignedUploadUrlForFieldPath(string $filename, Fieldable $fieldable, string $field_path) {
 

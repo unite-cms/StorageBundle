@@ -18,6 +18,7 @@ use UnitedCMS\CoreBundle\Entity\Organization;
 use UnitedCMS\CoreBundle\Entity\OrganizationMember;
 use UnitedCMS\CoreBundle\Entity\User;
 use UnitedCMS\CoreBundle\Tests\DatabaseAwareTestCase;
+use UnitedCMS\StorageBundle\Model\PreSignedUrl;
 
 class ControllerTest extends DatabaseAwareTestCase {
 
@@ -287,9 +288,12 @@ class ControllerTest extends DatabaseAwareTestCase {
     ]);
     $this->assertEquals(200, $this->client->getResponse()->getStatusCode());
 
-    $parts = [];
-    preg_match("/https:\/\/example.com\/foo\/([a-zA-Z0-9-]+)\/_a._.txt/", $this->client->getResponse()->getContent(), $parts);
-    $this->assertCount(2, $parts);
+    $response = \GuzzleHttp\json_decode($this->client->getResponse()->getContent());
+
+    // Check checksum.
+    $preSignedUrl = new PreSignedUrl($response->pre_signed_url, $response->uuid, $response->filename, $response->checksum);
+    $this->assertNotNull($preSignedUrl->getChecksum());
+    $this->assertTrue($preSignedUrl->check($this->container->getParameter('secret')));
 
     $s3Client = new S3Client([
       'version' => 'latest',
@@ -304,11 +308,13 @@ class ControllerTest extends DatabaseAwareTestCase {
 
     $command = $s3Client->getCommand('PutObject', [
       'Bucket' => 'foo',
-      'Key'    => $parts[1] . '/_a._.txt'
+      'Key'    => $preSignedUrl->getUuid() . '/_a._.txt'
     ]);
 
     $presignedRequest = $s3Client->createPresignedRequest($command, '+5 minutes');
-    $this->assertEquals((string)$presignedRequest->getUri(), $this->client->getResponse()->getContent());
+
+    $newResponse = \GuzzleHttp\json_decode($this->client->getResponse()->getContent());
+    $this->assertEquals((string)$presignedRequest->getUri(), $newResponse->pre_signed_url);
 
     $this->client->request('POST', $this->container->get('router')->generate('unitedcms_storage_sign_uploadsettingtype', [
       'organization' => $this->org1->getIdentifier(),
@@ -320,9 +326,11 @@ class ControllerTest extends DatabaseAwareTestCase {
     ]);
     $this->assertEquals(200, $this->client->getResponse()->getStatusCode());
 
-    $parts = [];
-    preg_match("/https:\/\/example.com\/foo\/([a-zA-Z0-9-]+)\/_a._.txt/", $this->client->getResponse()->getContent(), $parts);
-    $this->assertCount(2, $parts);
+    $response = \GuzzleHttp\json_decode($this->client->getResponse()->getContent());
+
+    $preSignedUrl = new PreSignedUrl($response->pre_signed_url, $response->uuid, $response->filename, $response->checksum);
+    $this->assertNotNull($preSignedUrl->getChecksum());
+    $this->assertTrue($preSignedUrl->check($this->container->getParameter('secret')));
 
     $s3Client = new S3Client([
       'version' => 'latest',
@@ -337,11 +345,12 @@ class ControllerTest extends DatabaseAwareTestCase {
 
     $command = $s3Client->getCommand('PutObject', [
       'Bucket' => 'foo',
-      'Key'    => $parts[1] . '/_a._.txt'
+      'Key'    => $preSignedUrl->getUuid() . '/_a._.txt'
     ]);
 
     $presignedRequest = $s3Client->createPresignedRequest($command, '+5 minutes');
-    $this->assertEquals((string)$presignedRequest->getUri(), $this->client->getResponse()->getContent());
+    $newResponse = \GuzzleHttp\json_decode($this->client->getResponse()->getContent());
+    $this->assertEquals((string)$presignedRequest->getUri(), $newResponse->pre_signed_url);
   }
 
 

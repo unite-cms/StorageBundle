@@ -10,6 +10,7 @@ use UnitedCMS\CoreBundle\Field\FieldableFieldSettings;
 use UnitedCMS\CoreBundle\Field\FieldType;
 use UnitedCMS\CoreBundle\SchemaType\SchemaTypeManager;
 use UnitedCMS\StorageBundle\Form\StorageFileType;
+use UnitedCMS\StorageBundle\Model\PreSignedUrl;
 
 class FileFieldType extends FieldType
 {
@@ -19,10 +20,12 @@ class FileFieldType extends FieldType
     const REQUIRED_SETTINGS         = ['bucket'];
 
     private $router;
+    private $secret;
 
-    public function __construct(Router $router)
+    public function __construct(Router $router, string $secret)
     {
         $this->router = $router;
+        $this->secret = $secret;
     }
 
     function getFormOptions(): array
@@ -71,6 +74,40 @@ class FileFieldType extends FieldType
         // Create full URL to file.
         $value['url'] = $this->field->getSettings()->bucket['endpoint'] . '/' . $value['id'] . '/' . $value['name'];
         return $value;
+    }
+
+    function validateData($data): array
+    {
+        $violations = [];
+
+        if(empty($data)) {
+            return $violations;
+        }
+
+        if(empty($data['size']) || empty($data['id']) || empty($data['name']) || empty($data['checksum'])) {
+            $violations[] = new ConstraintViolation(
+              'validation.missing_definition',
+              'validation.missing_definition',
+              [],
+              null,
+              '[' . $this->getIdentifier() . ']',
+              $data
+            );
+        }
+
+        $preSignedUrl = new PreSignedUrl('', $data['id'], $data['name'], $data['checksum']);
+        if(!$preSignedUrl->check($this->secret)) {
+            $violations[] = new ConstraintViolation(
+              'validation.invalid_checksum',
+              'validation.invalid_checksum',
+              [],
+              null,
+              '[' . $this->getIdentifier() . ']',
+              $data
+            );
+        }
+
+        return $violations;
     }
 
     function validateSettings(FieldableFieldSettings $settings): array

@@ -13,6 +13,7 @@ use Sensio\Bundle\FrameworkExtraBundle\Configuration\Method;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Route;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Security;
 use Symfony\Bundle\FrameworkBundle\Controller\Controller;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
@@ -43,11 +44,14 @@ class SignController extends Controller {
 
     if($form->isSubmitted() && $form->isValid()) {
       try {
-        return new Response(StorageService::createPreSignedUploadUrlForFieldPath(
-          $form->getData()['filename'],
-          $contentType,
-          $form->getData()['field']
-        ));
+          $preSignedUrl = StorageService::createPreSignedUploadUrlForFieldPath(
+            $form->getData()['filename'],
+            $contentType,
+            $form->getData()['field']
+          );
+          $preSignedUrl->sign($this->container->getParameter('kernel.secret'));
+          return new JsonResponse($preSignedUrl);
+
       } catch (\InvalidArgumentException $e) {
         throw new BadRequestHttpException($e->getMessage());
       }
@@ -75,11 +79,14 @@ class SignController extends Controller {
 
     if($form->isSubmitted() && $form->isValid()) {
       try {
-        return new Response(StorageService::createPreSignedUploadUrlForFieldPath(
-          $form->getData()['filename'],
-          $settingType,
-          $form->getData()['field']
-        ));
+          $preSignedUrl = StorageService::createPreSignedUploadUrlForFieldPath(
+            $form->getData()['filename'],
+            $settingType,
+            $form->getData()['field']
+          );
+          $preSignedUrl->sign($this->container->getParameter('kernel.secret'));
+          return new JsonResponse($preSignedUrl);
+
       } catch (\InvalidArgumentException $e) {
         throw new BadRequestHttpException($e->getMessage());
       }
