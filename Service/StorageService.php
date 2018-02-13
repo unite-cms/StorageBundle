@@ -18,11 +18,15 @@ use UnitedCMS\CoreBundle\Entity\SettingType;
 use UnitedCMS\CoreBundle\Entity\SettingTypeField;
 use UnitedCMS\CoreBundle\Field\FieldableFieldSettings;
 use UnitedCMS\StorageBundle\Field\Types\FileFieldType;
+use UnitedCMS\StorageBundle\Model\Collection;
 use UnitedCMS\StorageBundle\Model\PreSignedUrl;
 
 class StorageService {
 
   /**
+   * Resolves a nestable file field by a given path. At the moment, nestable
+   * fields are only used for the collection field type.
+   *
    * @param Fieldable $fieldable
    * @param $path
    *
@@ -31,6 +35,7 @@ class StorageService {
   public static function resolveFileFieldPath(Fieldable $fieldable, $path) {
     $parts = explode('/', $path);
 
+    // field path cannot be null.
     if(!$root = array_shift($parts)) {
       return null;
     }
@@ -42,7 +47,7 @@ class StorageService {
       return null;
     }
 
-    // If we have reached the end of the nested field path, return the field.
+    // If the path is not nested, we can just return the root element.
     if(empty($parts)) {
       if($field->getType() == FileFieldType::TYPE) {
         return $field;
@@ -51,29 +56,9 @@ class StorageService {
 
     // If this part is a collection field type.
     else {
-      if($field instanceof ContentTypeField && property_exists($field->getSettings(), 'fields') && !empty($field->getSettings()->fields[$root])) {
-        $collection = new ContentType();
-        $nestedField = new ContentTypeField();
-        $nestedField
-          ->setTitle($field->getSettings()->fields[$root]['title'])
-          ->setIdentifier($field->getSettings()->fields[$root]['identifier'])
-          ->setType($field->getSettings()->fields[$root]['type'])
-          ->setSettings(new FieldableFieldSettings($field->getSettings()->fields[$root]['settings']));
-        $collection->addField($nestedField);
-        return self::resolveFileFieldPath($collection, join('/', $parts));
-      }
-
-      if($field instanceof SettingTypeField && property_exists($field->getSettings(), 'fields') && !empty($field->getSettings()->fields[$root])) {
-        $collection = new SettingType();
-        $nestedField = new SettingTypeField();
-        $nestedField
-          ->setTitle($field->getSettings()->fields[$root]['title'])
-          ->setIdentifier($field->getSettings()->fields[$root]['identifier'])
-          ->setType($field->getSettings()->fields[$root]['type'])
-          ->setSettings(new FieldableFieldSettings($field->getSettings()->fields[$root]['settings']));
-        $collection->addField($nestedField);
-        return self::resolveFileFieldPath($collection, join('/', $parts));
-      }
+        if(property_exists($field->getSettings(), 'fields') && !empty($field->getSettings()->fields)) {
+            return self::resolveFileFieldPath(new Collection($field->getSettings()->fields, $field->getIdentifier(), $field), join('/', $parts));
+        }
     }
 
     return null;
