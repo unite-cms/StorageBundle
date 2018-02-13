@@ -52,6 +52,7 @@ class FileFieldType extends FieldType
           'attr' => [
             'file-types' => $this->field->getSettings()->file_types,
             'field-path' => $this->field->getIdentifier(),
+            'endpoint' => $this->field->getSettings()->bucket['endpoint'] . '/' . $this->field->getSettings()->bucket['bucket'],
             'upload-sign-url' => $url
           ],
         ]);
@@ -72,7 +73,7 @@ class FileFieldType extends FieldType
         }
 
         // Create full URL to file.
-        $value['url'] = $this->field->getSettings()->bucket['endpoint'] . '/' . $value['id'] . '/' . $value['name'];
+        $value['url'] = $this->field->getSettings()->bucket['endpoint'] . '/' . $this->field->getSettings()->bucket['bucket'] . '/' . $value['id'] . '/' . $value['name'];
         return $value;
     }
 

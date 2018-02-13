@@ -222,7 +222,7 @@ class FileFieldTypeTest extends FieldTypeTestCase
        }
     }');
     $result = json_decode(json_encode($result->toArray(true)));
-    
+
     $this->assertNotEmpty($result->data->createCt1->id);
     $content = $this->em->getRepository('UnitedCMSCoreBundle:Content')->find($result->data->createCt1->id);
     $this->assertNotNull($content);
@@ -231,7 +231,7 @@ class FileFieldTypeTest extends FieldTypeTestCase
     $this->assertEquals(12345, $result->data->createCt1->f1->size);
     $this->assertEquals('image/jpeg', $result->data->createCt1->f1->type);
     $this->assertEquals('XXX-YYY-ZZZ', $result->data->createCt1->f1->id);
-    $this->assertEquals('https://example.com/XXX-YYY-ZZZ/cat.jpg', $result->data->createCt1->f1->url);
+    $this->assertEquals('https://example.com/foo/XXX-YYY-ZZZ/cat.jpg', $result->data->createCt1->f1->url);
   }
 
     public function testFormBuild() {

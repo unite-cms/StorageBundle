@@ -10,13 +10,19 @@
             <div class="uk-margin-small-right">
                 <span uk-icon="icon: file; ratio: 2"></span>
             </div>
-            <div class="uk-text-left uk-flex-auto">
+            <a class="uk-text-left uk-flex-auto" :href="fileUrl" target="_blank">
                 {{ fileName }}<br />
                 <small>{{ fileSizeHuman }}</small>
-            </div>
+            </a>
             <div>
                 <button uk-close v-on:click.prevent="clearFile"></button>
             </div>
+
+            <input type="hidden" :name="name + '[name]'" :value="fileName" />
+            <input type="hidden" :name="name + '[type]'" :value="fileType" />
+            <input type="hidden" :name="name + '[size]'" :value="fileSize" />
+            <input type="hidden" :name="name + '[id]'" :value="fileId" />
+            <input type="hidden" :name="name + '[checksum]'" :value="checksum" />
         </div>
         <div v-else>
             <span uk-icon="icon: cloud-upload"></span>
@@ -30,12 +36,6 @@
         <div v-if="loading" class="uk-text-center" style="position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: rgba(255,255,255,0.75);">
             <div style="position: absolute; top: 50%; margin-top: -15px;" uk-spinner></div>
         </div>
-
-        <input type="hidden" :name="name + '[name]'" :value="fileName" />
-        <input type="hidden" :name="name + '[type]'" :value="fileType" />
-        <input type="hidden" :name="name + '[size]'" :value="fileSize" />
-        <input type="hidden" :name="name + '[id]'" :value="fileId" />
-        <input type="hidden" :name="name + '[checksum]'" :value="checksum" />
     </div>
 </template>
 
@@ -70,7 +70,13 @@
                 }
                 size = size / 1000;
                 return Math.floor(size) + 'Gb';
-            }
+            },
+            fileUrl: function(){
+                if(!this.fileName || !this.fileId) {
+                    return null;
+                }
+                return this.endpoint + '/' + this.fileId + '/' + this.fileName;
+            },
         },
 
         mounted() {
@@ -165,7 +171,28 @@
                     tmpFileName = preSignedUrl.filename;
                     tmpChecksum = preSignedUrl.checksum;
 
-                    UIkit.components.upload.options.methods.upload.call(this, [tmpFile]);
+                    UIkit.util.trigger(this.$el, 'upload', [files]);
+                    this.beforeAll(this);
+
+                    UIkit.util.ajax(this.url, {
+                        data: tmpFile,
+                        method: this.type,
+                        beforeSend: env => {
+                            const {xhr} = env;
+                            xhr.upload && UIkit.util.on(xhr.upload, 'progress', this.progress);
+                            ['loadStart', 'load', 'loadEnd', 'abort'].forEach(type =>
+                                UIkit.util.on(xhr, type.toLowerCase(), this[type])
+                            );
+
+                            this.beforeSend(env);
+                        }
+                    }).then(
+                        xhr => {
+                            this.complete(xhr);
+                            this.completeAll(xhr);
+                        },
+                        e => this.error(e.message)
+                    );
                 }, () => {
                     t.error = 'Cannot sign file for uploading';
                 });
@@ -177,7 +204,8 @@
             'value',
             'fileTypes',
             'fieldPath',
-            'uploadSignUrl'
+            'uploadSignUrl',
+            'endpoint'
         ],
         methods: {
             clearFile: function(){
