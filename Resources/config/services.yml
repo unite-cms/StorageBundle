@@ -9,3 +9,9 @@ services:
 
     UnitedCMS\StorageBundle\SchemaType\StorageFileInputType:
         tags: [united_cms.graphql.schema_type]
+
+
+    UnitedCMS\StorageBundle\Command\StorageFileDeleteUnused:
+        arguments: ['@doctrine.orm.default_entity_manager']
+        tags:
+            - { name: 'console.command', command: 'united:storage:delete-unused' }
