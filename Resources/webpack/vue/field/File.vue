@@ -52,7 +52,7 @@
                 fileType: value.type,
                 fileSize: value.size,
                 fileId: value.id,
-                checksum: null,
+                checksum: value.checksum,
                 error: null,
                 loading: false
             };

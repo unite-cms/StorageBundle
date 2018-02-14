@@ -4,7 +4,12 @@ namespace UnitedCMS\StorageBundle\Field\Types;
 
 use Symfony\Component\Routing\Router;
 use Symfony\Component\Validator\ConstraintViolation;
+use UnitedCMS\CoreBundle\Entity\ContentType;
 use UnitedCMS\CoreBundle\Entity\ContentTypeField;
+use UnitedCMS\CoreBundle\Entity\Fieldable;
+use UnitedCMS\CoreBundle\Entity\FieldableField;
+use UnitedCMS\CoreBundle\Entity\NestableFieldable;
+use UnitedCMS\CoreBundle\Entity\SettingType;
 use UnitedCMS\CoreBundle\Entity\SettingTypeField;
 use UnitedCMS\CoreBundle\Field\FieldableFieldSettings;
 use UnitedCMS\CoreBundle\Field\FieldType;
@@ -28,30 +33,50 @@ class FileFieldType extends FieldType
         $this->secret = $secret;
     }
 
+    private function getRootEntity(Fieldable $fieldable) {
+        if($fieldable instanceof NestableFieldable) {
+            if($fieldable->getParentEntity()) {
+                return $this->getRootEntity($fieldable->getParentEntity());
+            }
+        }
+        return $fieldable;
+    }
+
+    private function getFieldPathPrefix(Fieldable $fieldable) {
+        $path = '';
+        if($fieldable instanceof NestableFieldable) {
+            $path = $this->getFieldPathPrefix($fieldable->getParentEntity()) . $fieldable->getIdentifier() . '/';
+        }
+        return $path;
+    }
+
     function getFormOptions(): array
     {
         $url = null;
 
-        if($this->field instanceof ContentTypeField) {
+        // To generate the sing url we need to find out the base fieldable.
+        $fieldable = $this->getRootEntity($this->field->getEntity());
+
+        if($fieldable instanceof ContentType) {
             $url = $this->router->generate('unitedcms_storage_sign_uploadcontenttype', [
-              'organization' => $this->field->getEntity()->getDomain()->getOrganization()->getIdentifier(),
-              'domain' => $this->field->getEntity()->getDomain()->getIdentifier(),
-              'content_type' => $this->field->getEntity()->getIdentifier(),
+              'organization' => $fieldable->getDomain()->getOrganization()->getIdentifier(),
+              'domain' => $fieldable->getDomain()->getIdentifier(),
+              'content_type' => $fieldable->getIdentifier(),
             ], Router::ABSOLUTE_URL);
         }
 
-        if($this->field instanceof SettingTypeField) {
+        else if($fieldable instanceof SettingType) {
             $url = $this->router->generate('unitedcms_storage_sign_uploadsettingtype', [
-              'organization' => $this->field->getEntity()->getDomain()->getOrganization()->getIdentifier(),
-              'domain' => $this->field->getEntity()->getDomain()->getIdentifier(),
-              'content_type' => $this->field->getEntity()->getIdentifier(),
+              'organization' => $fieldable->getDomain()->getOrganization()->getIdentifier(),
+              'domain' => $fieldable->getDomain()->getIdentifier(),
+              'content_type' => $fieldable->getIdentifier(),
             ], Router::ABSOLUTE_URL);
         }
 
         return array_merge(parent::getFormOptions(), [
           'attr' => [
             'file-types' => $this->field->getSettings()->file_types,
-            'field-path' => $this->field->getIdentifier(),
+            'field-path' => $this->getFieldPathPrefix($this->field->getEntity()) . $this->field->getIdentifier(),
             'endpoint' => $this->field->getSettings()->bucket['endpoint'] . '/' . $this->field->getSettings()->bucket['bucket'],
             'upload-sign-url' => $url
           ],
@@ -96,16 +121,18 @@ class FileFieldType extends FieldType
             );
         }
 
-        $preSignedUrl = new PreSignedUrl('', $data['id'], $data['name'], $data['checksum']);
-        if(!$preSignedUrl->check($this->secret)) {
-            $violations[] = new ConstraintViolation(
-              'validation.invalid_checksum',
-              'validation.invalid_checksum',
-              [],
-              null,
-              '[' . $this->getIdentifier() . ']',
-              $data
-            );
+        if(empty($violations)) {
+            $preSignedUrl = new PreSignedUrl('', $data['id'], $data['name'], $data['checksum']);
+            if (!$preSignedUrl->check($this->secret)) {
+                $violations[] = new ConstraintViolation(
+                  'validation.invalid_checksum',
+                  'validation.invalid_checksum',
+                  [],
+                  null,
+                  '['.$this->getIdentifier().']',
+                  $data
+                );
+            }
         }
 
         return $violations;
