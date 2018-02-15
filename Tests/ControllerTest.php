@@ -352,22 +352,4 @@ class ControllerTest extends DatabaseAwareTestCase {
     $newResponse = \GuzzleHttp\json_decode($this->client->getResponse()->getContent());
     $this->assertEquals((string)$presignedRequest->getUri(), $newResponse->pre_signed_url);
   }
-
-  public function testPreSignNestedFileUpload() {
-
-      // Try to pre sign nested content type field.
-      $this->client->request('POST', $this->container->get('router')->generate('unitedcms_storage_sign_uploadcontenttype', [
-        'organization' => $this->org1->getIdentifier(),
-        'domain' => $this->domain1->getIdentifier(),
-        'content_type' => 'ct1',
-      ]), [
-        'field' => 'nested/file',
-        'filename' => 'test.txt',
-      ]);
-      $this->assertEquals(200, $this->client->getResponse()->getStatusCode());
-
-      $response = \GuzzleHttp\json_decode($this->client->getResponse()->getContent());
-  }
-
-
 }

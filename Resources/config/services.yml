@@ -1,17 +1,26 @@
 services:
+
+    # A Helper for common s3 storage tasks.
+    united.cms.storage.service:
+        public: true
+        class: UnitedCMS\StorageBundle\Service\StorageService
+        arguments: ['@united.cms.field_type_manager']
+
     # A file upload field.
     UnitedCMS\StorageBundle\Field\Types\FileFieldType:
         tags: [united_cms.field_type]
         arguments: ['@router.default', '%kernel.secret%']
 
+    # A file graphQL schema object type.
     UnitedCMS\StorageBundle\SchemaType\StorageFileType:
         tags: [united_cms.graphql.schema_type]
 
+    # A file graphQL schema input type.
     UnitedCMS\StorageBundle\SchemaType\StorageFileInputType:
         tags: [united_cms.graphql.schema_type]
 
-
+    # A command to delete unsed files from s3 buckets.
     UnitedCMS\StorageBundle\Command\StorageFileDeleteUnused:
-        arguments: ['@doctrine.orm.default_entity_manager']
+        arguments: ['@doctrine.orm.default_entity_manager', '@united.cms.field_type_manager']
         tags:
             - { name: 'console.command', command: 'united:storage:delete-unused' }

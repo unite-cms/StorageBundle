@@ -5,8 +5,7 @@ namespace UnitedCMS\StorageBundle\Field\Types;
 use Symfony\Component\Routing\Router;
 use Symfony\Component\Validator\ConstraintViolation;
 use UnitedCMS\CoreBundle\Entity\ContentType;
-use UnitedCMS\CoreBundle\Entity\Fieldable;
-use UnitedCMS\CoreBundle\Entity\NestableFieldable;
+use UnitedCMS\CoreBundle\Entity\FieldableField;
 use UnitedCMS\CoreBundle\Entity\SettingType;
 use UnitedCMS\CoreBundle\Field\FieldableFieldSettings;
 use UnitedCMS\CoreBundle\Field\FieldType;
@@ -30,29 +29,12 @@ class FileFieldType extends FieldType
         $this->secret = $secret;
     }
 
-    private function getRootEntity(Fieldable $fieldable) {
-        if($fieldable instanceof NestableFieldable) {
-            if($fieldable->getParentEntity()) {
-                return $this->getRootEntity($fieldable->getParentEntity());
-            }
-        }
-        return $fieldable;
-    }
-
-    private function getFieldPathPrefix(Fieldable $fieldable) {
-        $path = '';
-        if($fieldable instanceof NestableFieldable) {
-            $path = $this->getFieldPathPrefix($fieldable->getParentEntity()) . $fieldable->getIdentifier() . '/';
-        }
-        return $path;
-    }
-
-    function getFormOptions(): array
+    function getFormOptions(FieldableField $field): array
     {
         $url = null;
 
         // To generate the sing url we need to find out the base fieldable.
-        $fieldable = $this->getRootEntity($this->field->getEntity());
+        $fieldable = $field->getEntity()->getRootEntity();
 
         if($fieldable instanceof ContentType) {
             $url = $this->router->generate('unitedcms_storage_sign_uploadcontenttype', [
@@ -70,36 +52,37 @@ class FileFieldType extends FieldType
             ], Router::ABSOLUTE_URL);
         }
 
-        return array_merge(parent::getFormOptions(), [
+        // Use the identifier path part, but exclude root entity and include field identifier.
+        $identifier_path_parts = explode('/', $field->getEntity()->getIdentifierPath());
+        array_shift($identifier_path_parts);
+        $identifier_path_parts[] = $field->getIdentifier();
+
+        return array_merge(parent::getFormOptions($field), [
           'attr' => [
-            'file-types' => $this->field->getSettings()->file_types,
-            'field-path' => $this->getFieldPathPrefix($this->field->getEntity()) . $this->field->getIdentifier(),
-            'endpoint' => $this->field->getSettings()->bucket['endpoint'] . '/' . $this->field->getSettings()->bucket['bucket'],
+            'file-types' => $field->getSettings()->file_types,
+            'field-path' => join('/', $identifier_path_parts),
+            'endpoint' => $field->getSettings()->bucket['endpoint'] . '/' . $field->getSettings()->bucket['bucket'],
             'upload-sign-url' => $url
           ],
         ]);
     }
 
-    function getGraphQLType(SchemaTypeManager $schemaTypeManager, $nestingLevel = 0) {
+    function getGraphQLType(FieldableField $field, SchemaTypeManager $schemaTypeManager, $nestingLevel = 0) {
         return $schemaTypeManager->getSchemaType('StorageFile');
     }
 
-    function getGraphQLInputType(SchemaTypeManager $schemaTypeManager, $nestingLevel = 0) {
+    function getGraphQLInputType(FieldableField $field, SchemaTypeManager $schemaTypeManager, $nestingLevel = 0) {
         return $schemaTypeManager->getSchemaType('StorageFileInput');
     }
 
-    function resolveGraphQLData($value)
+    function resolveGraphQLData(FieldableField $field, $value)
     {
-        if (!$this->fieldIsPresent()) {
-            return 'undefined';
-        }
-
         // Create full URL to file.
-        $value['url'] = $this->field->getSettings()->bucket['endpoint'] . '/' . $this->field->getSettings()->bucket['bucket'] . '/' . $value['id'] . '/' . $value['name'];
+        $value['url'] = $field->getSettings()->bucket['endpoint'] . '/' . $field->getSettings()->bucket['bucket'] . '/' . $value['id'] . '/' . $value['name'];
         return $value;
     }
 
-    function validateData($data): array
+    function validateData(FieldableField $field, $data): array
     {
         $violations = [];
 
@@ -108,23 +91,23 @@ class FileFieldType extends FieldType
         }
 
         if(empty($data['size']) || empty($data['id']) || empty($data['name']) || empty($data['checksum'])) {
-            $violations[] = $this->createViolation('validation.missing_definition');
+            $violations[] = $this->createViolation($field, 'validation.missing_definition');
         }
 
         if(empty($violations)) {
             $preSignedUrl = new PreSignedUrl('', $data['id'], $data['name'], $data['checksum']);
             if (!$preSignedUrl->check($this->secret)) {
-                $violations[] = $this->createViolation('validation.invalid_checksum');
+                $violations[] = $this->createViolation($field, 'validation.invalid_checksum');
             }
         }
 
         return $violations;
     }
 
-    function validateSettings(FieldableFieldSettings $settings): array
+    function validateSettings(FieldableField $field, FieldableFieldSettings $settings): array
     {
         // Validate allowed and required settings.
-        $violations = parent::validateSettings($settings);
+        $violations = parent::validateSettings($field, $settings);
 
         // Validate bucket configuration.
         if(empty($violations)) {

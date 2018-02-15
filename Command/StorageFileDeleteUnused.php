@@ -15,27 +15,31 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use UnitedCMS\CoreBundle\Entity\ContentType;
-use UnitedCMS\CoreBundle\Entity\Fieldable;
 use UnitedCMS\CoreBundle\Entity\FieldableField;
-use UnitedCMS\CoreBundle\Entity\NestableFieldable;
 use UnitedCMS\CoreBundle\Entity\SettingType;
+use UnitedCMS\CoreBundle\Field\FieldTypeManager;
+use UnitedCMS\CoreBundle\Field\NestableFieldTypeInterface;
 use UnitedCMS\StorageBundle\Field\Types\FileFieldType;
-use UnitedCMS\StorageBundle\Model\Collection;
-use UnitedCMS\StorageBundle\Model\CollectionField;
 
 class StorageFileDeleteUnused extends Command
 {
     /**
-     * @var \Doctrine\ORM\EntityManager
+     * @var EntityManager
      */
     private $em;
 
     /**
+     * @var FieldTypeManager $fieldTypeManager
+     */
+    private $fieldTypeManager;
+
+    /**
      * {@inheritdoc}
      */
-    public function __construct(EntityManager $em)
+    public function __construct(EntityManager $em, FieldTypeManager $fieldTypeManager)
     {
         $this->em = $em;
+        $this->fieldTypeManager = $fieldTypeManager;
         parent::__construct();
     }
 
@@ -50,26 +54,8 @@ class StorageFileDeleteUnused extends Command
           ->addOption('force', InputOption::VALUE_OPTIONAL);
     }
 
-    private function getRootEntity(Fieldable $fieldable) {
-        if($fieldable instanceof NestableFieldable) {
-            if($fieldable->getParentEntity()) {
-                return $this->getRootEntity($fieldable->getParentEntity());
-            }
-        }
-        return $fieldable;
-    }
-
-    private function getFieldPathPrefix(Fieldable $fieldable) {
-        $path = '';
-        if($fieldable instanceof NestableFieldable) {
-            $path = $this->getFieldPathPrefix($fieldable->getParentEntity()) . $fieldable->getIdentifier() . '/';
-        }
-        return $path;
-    }
-
-    private function findNestedFieldData($data, $path) {
+    private function findNestedFieldData(array $data, array $path_parts) {
         $file_usage = [];
-        $path_parts = explode('/', $path);
         $root_part = array_shift($path_parts);
 
         if(!empty($data[$root_part])) {
@@ -82,7 +68,7 @@ class StorageFileDeleteUnused extends Command
             // If we can find nested data.
             else {
                 foreach($data[$root_part] as $child) {
-                    $file_usage = array_merge($file_usage, $this->findNestedFieldData($child, join('/', $path_parts)));
+                    $file_usage = array_merge($file_usage, $this->findNestedFieldData($child, $path_parts));
                 }
             }
         }
@@ -92,8 +78,11 @@ class StorageFileDeleteUnused extends Command
 
     private function findNestedFileDefinitions(FieldableField $field, &$buckets) {
 
-        $rootEntity = $this->getRootEntity($field->getEntity());
-        $fieldPath = $this->getFieldPathPrefix($field->getEntity()) . $field->getIdentifier();
+
+
+        $fieldPathParts = explode('/', $field->getEntity()->getIdentifierPath());
+        array_shift($fieldPathParts);
+        $fieldPathParts[] = $field->getIdentifier();
 
         // Handle file fields.
         if($field->getType() == FileFieldType::TYPE) {
@@ -113,25 +102,27 @@ class StorageFileDeleteUnused extends Command
             }
 
             // Find usage for (possible nested) content.
-            if($rootEntity instanceof ContentType) {
-                foreach ($this->em->getRepository('UnitedCMSCoreBundle:Content')->findBy(['contentType' => $rootEntity]) as $content) {
-                    $buckets[$bucket_path]['files'] = array_merge($buckets[$bucket_path]['files'], $this->findNestedFieldData($content->getData(), $fieldPath));
+            if($field->getEntity()->getRootEntity() instanceof ContentType) {
+                foreach ($this->em->getRepository('UnitedCMSCoreBundle:Content')->findBy(['contentType' => $field->getEntity()->getRootEntity()]) as $content) {
+                    $buckets[$bucket_path]['files'] = array_merge($buckets[$bucket_path]['files'], $this->findNestedFieldData($content->getData(), $fieldPathParts));
                 }
             }
 
             // Find usage for (possible nested) setting.
-            if($rootEntity instanceof SettingType) {
-                foreach ($this->em->getRepository('UnitedCMSCoreBundle:Setting')->findBy(['settingType' => $rootEntity]) as $setting) {
-                    $buckets[$bucket_path]['files'] = array_merge($buckets[$bucket_path]['files'], $this->findNestedFieldData($setting->getData(), $fieldPath));
+            if($field->getEntity()->getRootEntity() instanceof SettingType) {
+                foreach ($this->em->getRepository('UnitedCMSCoreBundle:Setting')->findBy(['settingType' => $field->getEntity()->getRootEntity()]) as $setting) {
+                    $buckets[$bucket_path]['files'] = array_merge($buckets[$bucket_path]['files'], $this->findNestedFieldData($setting->getData(), $fieldPathParts));
                 }
             }
         }
 
-        // Handle nested fields.
-        elseif(property_exists($field->getSettings(), 'fields') && !empty($field->getSettings()->fields)) {
-            $collection = new Collection($field->getSettings()->fields, $field->getIdentifier(), $field->getEntity());
-            foreach($collection->getFields() as $field) {
-                $this->findNestedFileDefinitions($field, $buckets);
+        else {
+            // If this field is nestable, continue resolving.
+            $nestedFieldType = $this->fieldTypeManager->getFieldType($field->getType());
+            if($nestedFieldType instanceof NestableFieldTypeInterface) {
+                foreach($nestedFieldType::getNestableFieldable($field)->getFields() as $field) {
+                    $this->findNestedFileDefinitions($field, $buckets);
+                }
             }
         }
     }

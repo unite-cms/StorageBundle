@@ -20,7 +20,6 @@ use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use UnitedCMS\CoreBundle\Entity\ContentType;
 use UnitedCMS\CoreBundle\Entity\SettingType;
 use UnitedCMS\StorageBundle\Form\SignInputType;
-use UnitedCMS\StorageBundle\Service\StorageService;
 
 class SignController extends Controller {
 
@@ -44,7 +43,7 @@ class SignController extends Controller {
 
     if($form->isSubmitted() && $form->isValid()) {
       try {
-          $preSignedUrl = StorageService::createPreSignedUploadUrlForFieldPath(
+          $preSignedUrl = $this->container->get('united.cms.storage.service')->createPreSignedUploadUrlForFieldPath(
             $form->getData()['filename'],
             $contentType,
             $form->getData()['field']
@@ -79,7 +78,7 @@ class SignController extends Controller {
 
     if($form->isSubmitted() && $form->isValid()) {
       try {
-          $preSignedUrl = StorageService::createPreSignedUploadUrlForFieldPath(
+          $preSignedUrl = $this->container->get('united.cms.storage.service')->createPreSignedUploadUrlForFieldPath(
             $form->getData()['filename'],
             $settingType,
             $form->getData()['field']

@@ -10,20 +10,26 @@ namespace UnitedCMS\StorageBundle\Service;
 
 use Aws\S3\S3Client;
 use Ramsey\Uuid\Uuid;
-use UnitedCMS\CoreBundle\Entity\ContentType;
-use UnitedCMS\CoreBundle\Entity\ContentTypeField;
 use UnitedCMS\CoreBundle\Entity\Fieldable;
 use UnitedCMS\CoreBundle\Entity\FieldableField;
-use UnitedCMS\CoreBundle\Entity\SettingType;
-use UnitedCMS\CoreBundle\Entity\SettingTypeField;
-use UnitedCMS\CoreBundle\Field\FieldableFieldSettings;
+use UnitedCMS\CoreBundle\Field\FieldTypeManager;
+use UnitedCMS\CoreBundle\Field\NestableFieldTypeInterface;
 use UnitedCMS\StorageBundle\Field\Types\FileFieldType;
-use UnitedCMS\StorageBundle\Model\Collection;
 use UnitedCMS\StorageBundle\Model\PreSignedUrl;
 
 class StorageService {
 
-  /**
+    /**
+     * @var FieldTypeManager $fieldTypeManager
+     */
+    private $fieldTypeManager;
+
+    public function __construct(FieldTypeManager $fieldTypeManager)
+    {
+        $this->fieldTypeManager = $fieldTypeManager;
+    }
+
+    /**
    * Resolves a nestable file field by a given path. At the moment, nestable
    * fields are only used for the collection field type.
    *
@@ -32,7 +38,7 @@ class StorageService {
    *
    * @return null|FieldableField
    */
-  public static function resolveFileFieldPath(Fieldable $fieldable, $path) {
+  public function resolveFileFieldPath(Fieldable $fieldable, $path) {
     $parts = explode('/', $path);
 
     // field path cannot be null.
@@ -54,10 +60,11 @@ class StorageService {
       }
     }
 
-    // If this part is a collection field type.
     else {
-        if(property_exists($field->getSettings(), 'fields') && !empty($field->getSettings()->fields)) {
-            return self::resolveFileFieldPath(new Collection($field->getSettings()->fields, $field->getIdentifier(), $field), join('/', $parts));
+        // If this field is nestable, continue resolving.
+        $nestedFieldType = $this->fieldTypeManager->getFieldType($field->getType());
+        if($nestedFieldType instanceof NestableFieldTypeInterface) {
+            return $this->resolveFileFieldPath($nestedFieldType::getNestableFieldable($field), join('/', $parts));
         }
     }
 
@@ -73,7 +80,7 @@ class StorageService {
    *
    * @return PreSignedUrl
    */
-  public static function createPreSignedUploadUrl(string $filename, array $bucket_settings, string $allowed_file_types = '*') {
+  public function createPreSignedUploadUrl(string $filename, array $bucket_settings, string $allowed_file_types = '*') {
 
     // Check if file type is allowed.
     $filenameparts = explode('.', $filename);
@@ -133,9 +140,9 @@ class StorageService {
    *
    * @return PreSignedUrl
    */
-  public static function createPreSignedUploadUrlForFieldPath(string $filename, Fieldable $fieldable, string $field_path) {
+  public function createPreSignedUploadUrlForFieldPath(string $filename, Fieldable $fieldable, string $field_path) {
 
-    if(!$field = self::resolveFileFieldPath($fieldable, $field_path)) {
+    if(!$field = $this->resolveFileFieldPath($fieldable, $field_path)) {
       throw new \InvalidArgumentException('Field "' . $field_path . '" not found in fieldable.');
     }
 
@@ -150,6 +157,6 @@ class StorageService {
       $allowed_field_types = $field->getSettings()->file_types;
     }
 
-    return self::createPreSignedUploadUrl($filename, $field->getSettings()->bucket, $allowed_field_types);
+    return $this->createPreSignedUploadUrl($filename, $field->getSettings()->bucket, $allowed_field_types);
   }
 }
