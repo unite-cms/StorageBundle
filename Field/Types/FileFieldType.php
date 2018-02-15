@@ -5,12 +5,9 @@ namespace UnitedCMS\StorageBundle\Field\Types;
 use Symfony\Component\Routing\Router;
 use Symfony\Component\Validator\ConstraintViolation;
 use UnitedCMS\CoreBundle\Entity\ContentType;
-use UnitedCMS\CoreBundle\Entity\ContentTypeField;
 use UnitedCMS\CoreBundle\Entity\Fieldable;
-use UnitedCMS\CoreBundle\Entity\FieldableField;
 use UnitedCMS\CoreBundle\Entity\NestableFieldable;
 use UnitedCMS\CoreBundle\Entity\SettingType;
-use UnitedCMS\CoreBundle\Entity\SettingTypeField;
 use UnitedCMS\CoreBundle\Field\FieldableFieldSettings;
 use UnitedCMS\CoreBundle\Field\FieldType;
 use UnitedCMS\CoreBundle\SchemaType\SchemaTypeManager;
@@ -111,27 +108,13 @@ class FileFieldType extends FieldType
         }
 
         if(empty($data['size']) || empty($data['id']) || empty($data['name']) || empty($data['checksum'])) {
-            $violations[] = new ConstraintViolation(
-              'validation.missing_definition',
-              'validation.missing_definition',
-              [],
-              null,
-              '[' . $this->getIdentifier() . ']',
-              $data
-            );
+            $violations[] = $this->createViolation('validation.missing_definition');
         }
 
         if(empty($violations)) {
             $preSignedUrl = new PreSignedUrl('', $data['id'], $data['name'], $data['checksum']);
             if (!$preSignedUrl->check($this->secret)) {
-                $violations[] = new ConstraintViolation(
-                  'validation.invalid_checksum',
-                  'validation.invalid_checksum',
-                  [],
-                  null,
-                  '['.$this->getIdentifier().']',
-                  $data
-                );
+                $violations[] = $this->createViolation('validation.invalid_checksum');
             }
         }
 
