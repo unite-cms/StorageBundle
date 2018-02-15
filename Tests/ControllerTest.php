@@ -314,7 +314,11 @@ class ControllerTest extends DatabaseAwareTestCase {
     $presignedRequest = $s3Client->createPresignedRequest($command, '+5 minutes');
 
     $newResponse = \GuzzleHttp\json_decode($this->client->getResponse()->getContent());
-    $this->assertEquals((string)$presignedRequest->getUri(), $newResponse->pre_signed_url);
+
+    $generatedParts = explode('&X-Amz-Signature=', $newResponse->pre_signed_url);
+    $actualParts = explode('&X-Amz-Signature=', (string)$presignedRequest->getUri());
+
+    $this->assertEquals($actualParts[0], $generatedParts[0]);
 
     $this->client->request('POST', $this->container->get('router')->generate('unitedcms_storage_sign_uploadsettingtype', [
       'organization' => $this->org1->getIdentifier(),
@@ -350,6 +354,10 @@ class ControllerTest extends DatabaseAwareTestCase {
 
     $presignedRequest = $s3Client->createPresignedRequest($command, '+5 minutes');
     $newResponse = \GuzzleHttp\json_decode($this->client->getResponse()->getContent());
-    $this->assertEquals((string)$presignedRequest->getUri(), $newResponse->pre_signed_url);
+
+    $generatedParts = explode('&X-Amz-Signature=', $newResponse->pre_signed_url);
+    $actualParts = explode('&X-Amz-Signature=', (string)$presignedRequest->getUri());
+
+    $this->assertEquals($actualParts[0], $generatedParts[0]);
   }
 }
