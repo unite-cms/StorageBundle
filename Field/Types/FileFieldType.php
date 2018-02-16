@@ -2,9 +2,13 @@
 
 namespace UnitedCMS\StorageBundle\Field\Types;
 
+use Doctrine\ORM\EntityRepository;
 use Symfony\Component\Routing\Router;
 use Symfony\Component\Validator\ConstraintViolation;
+use UnitedCMS\CoreBundle\Entity\Content;
 use UnitedCMS\CoreBundle\Entity\ContentType;
+use UnitedCMS\CoreBundle\Entity\ContentTypeField;
+use UnitedCMS\CoreBundle\Entity\FieldableContent;
 use UnitedCMS\CoreBundle\Entity\FieldableField;
 use UnitedCMS\CoreBundle\Entity\SettingType;
 use UnitedCMS\CoreBundle\Field\FieldableFieldSettings;
@@ -12,6 +16,7 @@ use UnitedCMS\CoreBundle\Field\FieldType;
 use UnitedCMS\CoreBundle\SchemaType\SchemaTypeManager;
 use UnitedCMS\StorageBundle\Form\StorageFileType;
 use UnitedCMS\StorageBundle\Model\PreSignedUrl;
+use UnitedCMS\StorageBundle\Service\StorageService;
 
 class FileFieldType extends FieldType
 {
@@ -22,13 +27,18 @@ class FileFieldType extends FieldType
 
     private $router;
     private $secret;
+    private $storageService;
 
-    public function __construct(Router $router, string $secret)
+    public function __construct(Router $router, string $secret, StorageService $storageService)
     {
         $this->router = $router;
         $this->secret = $secret;
+        $this->storageService = $storageService;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     function getFormOptions(FieldableField $field): array
     {
         $url = null;
@@ -67,14 +77,23 @@ class FileFieldType extends FieldType
         ]);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     function getGraphQLType(FieldableField $field, SchemaTypeManager $schemaTypeManager, $nestingLevel = 0) {
         return $schemaTypeManager->getSchemaType('StorageFile');
     }
 
+    /**
+     * {@inheritdoc}
+     */
     function getGraphQLInputType(FieldableField $field, SchemaTypeManager $schemaTypeManager, $nestingLevel = 0) {
         return $schemaTypeManager->getSchemaType('StorageFileInput');
     }
 
+    /**
+     * {@inheritdoc}
+     */
     function resolveGraphQLData(FieldableField $field, $value)
     {
         // Create full URL to file.
@@ -82,6 +101,9 @@ class FileFieldType extends FieldType
         return $value;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     function validateData(FieldableField $field, $data): array
     {
         $violations = [];
@@ -104,6 +126,9 @@ class FileFieldType extends FieldType
         return $violations;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     function validateSettings(FieldableField $field, FieldableFieldSettings $settings): array
     {
         // Validate allowed and required settings.
@@ -139,5 +164,52 @@ class FileFieldType extends FieldType
         }
 
         return $violations;
+    }
+
+    /**
+     * On update delete old file from s3 bucket.
+     *
+     * @param FieldableField $field
+     * @param FieldableContent $content
+     * @param EntityRepository $repository
+     * @param $old_data
+     * @param $data
+     */
+    public function onUpdate(FieldableField $field, FieldableContent $content, EntityRepository $repository, $old_data, &$data) {
+
+        if(isset($old_data[$field->getIdentifier()])) {
+
+            $old_file = $old_data[$field->getIdentifier()];
+            $new_file = isset($data[$field->getIdentifier()]) ? $data[$field->getIdentifier()] : null;
+
+            // the fields in the file array can be in any order, so we need to sort them for checking differences.
+            asort($old_file);
+
+            if(is_array($new_file)) {
+                asort($new_file);
+            }
+
+            // If we have a new file, delete the old one.
+            if($old_file != $new_file) {
+                $this->storageService->deleteObject($old_file['id'], $old_file['name'], $field->getSettings()->bucket);
+            }
+        }
+    }
+
+    /**
+     * On content hard delete, delete the file from s3 bucket.
+     *
+     * @param FieldableField $field
+     * @param Content $content
+     * @param EntityRepository $repository
+     * @param $data
+     */
+    public function onHardDelete(FieldableField $field, Content $content, EntityRepository $repository, $data) {
+        if(isset($data[$field->getIdentifier()])) {
+
+            // If we hard delete this content, delete the attached file.
+            $file = $data[$field->getIdentifier()];
+            print_r($this->storageService->deleteObject($file['id'], $file['name'], $field->getSettings()->bucket));
+        }
     }
 }
