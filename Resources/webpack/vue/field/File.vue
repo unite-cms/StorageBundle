@@ -8,7 +8,8 @@
 
         <div v-if="fileName" class="uk-flex uk-flex-middle">
             <div class="uk-margin-small-right">
-                <span uk-icon="icon: file; ratio: 2"></span>
+                <span v-if="!this.hasThumbnailUrl()" uk-icon="icon: file; ratio: 2"></span>
+                <img class="uk-border-rounded" style="max-height: 100px; margin-right: 20px;" v-if="this.hasThumbnailUrl()" :src="this.actualThumbnailUrl" />
             </div>
             <a class="uk-text-left uk-flex-auto" :href="fileUrl" target="_blank">
                 {{ fileName }}<br />
@@ -77,6 +78,16 @@
                 }
                 return this.endpoint + '/' + this.fileId + '/' + this.fileName;
             },
+            actualThumbnailUrl: function() {
+                if(!this.hasThumbnailUrl()) {
+                    return null;
+                }
+
+                return this.thumbnailUrl
+                    .replace('{endpoint}', this.endpoint)
+                    .replace('{id}', this.fileId)
+                    .replace('{name}', this.fileName);
+            }
         },
 
         mounted() {
@@ -205,9 +216,13 @@
             'fileTypes',
             'fieldPath',
             'uploadSignUrl',
+            'thumbnailUrl',
             'endpoint'
         ],
         methods: {
+            hasThumbnailUrl : function() {
+                return this.thumbnailUrl && this.thumbnailUrl.length > 0;
+            },
             clearFile: function(){
                 this.error = null;
                 UIkit.modal.confirm('Do you really want to delete the selected file?').then(() => {

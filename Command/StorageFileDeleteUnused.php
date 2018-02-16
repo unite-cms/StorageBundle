@@ -20,6 +20,7 @@ use UnitedCMS\CoreBundle\Entity\SettingType;
 use UnitedCMS\CoreBundle\Field\FieldTypeManager;
 use UnitedCMS\CoreBundle\Field\NestableFieldTypeInterface;
 use UnitedCMS\StorageBundle\Field\Types\FileFieldType;
+use UnitedCMS\StorageBundle\Field\Types\ImageFieldType;
 
 class StorageFileDeleteUnused extends Command
 {
@@ -85,7 +86,7 @@ class StorageFileDeleteUnused extends Command
         $fieldPathParts[] = $field->getIdentifier();
 
         // Handle file fields.
-        if($field->getType() == FileFieldType::TYPE) {
+        if($field->getType() == FileFieldType::TYPE || $field->getType() == ImageFieldType::TYPE) {
             $bucket_path = $field->getSettings()->bucket['endpoint'] . '/' . $field->getSettings()->bucket['bucket'];
 
             // Create basic bucket information.
@@ -137,12 +138,12 @@ class StorageFileDeleteUnused extends Command
         $this->em->getFilters()->disable('gedmo_softdeleteable');
 
         // Find all content file fields.
-        foreach($this->em->getRepository('UnitedCMSCoreBundle:ContentTypeField')->findBy(['type' => ['file', 'collection']]) as $field) {
+        foreach($this->em->getRepository('UnitedCMSCoreBundle:ContentTypeField')->findBy(['type' => [FileFieldType::TYPE, ImageFieldType::TYPE, 'collection']]) as $field) {
             $this->findNestedFileDefinitions($field, $buckets);
         }
 
         // Find all setting file fields.
-        foreach($this->em->getRepository('UnitedCMSCoreBundle:SettingTypeField')->findBy(['type' => ['file', 'collection']]) as $field) {
+        foreach($this->em->getRepository('UnitedCMSCoreBundle:SettingTypeField')->findBy(['type' => [FileFieldType::TYPE, ImageFieldType::TYPE, 'collection']]) as $field) {
             $this->findNestedFileDefinitions($field, $buckets);
         }
 

@@ -7,7 +7,6 @@ use Symfony\Component\Routing\Router;
 use Symfony\Component\Validator\ConstraintViolation;
 use UnitedCMS\CoreBundle\Entity\Content;
 use UnitedCMS\CoreBundle\Entity\ContentType;
-use UnitedCMS\CoreBundle\Entity\ContentTypeField;
 use UnitedCMS\CoreBundle\Entity\FieldableContent;
 use UnitedCMS\CoreBundle\Entity\FieldableField;
 use UnitedCMS\CoreBundle\Entity\SettingType;

@@ -15,6 +15,7 @@ use UnitedCMS\CoreBundle\Entity\FieldableField;
 use UnitedCMS\CoreBundle\Field\FieldTypeManager;
 use UnitedCMS\CoreBundle\Field\NestableFieldTypeInterface;
 use UnitedCMS\StorageBundle\Field\Types\FileFieldType;
+use UnitedCMS\StorageBundle\Field\Types\ImageFieldType;
 use UnitedCMS\StorageBundle\Model\PreSignedUrl;
 
 class StorageService
@@ -57,7 +58,7 @@ class StorageService
 
         // If the path is not nested, we can just return the root element.
         if (empty($parts)) {
-            if ($field->getType() == FileFieldType::TYPE) {
+            if ($field->getType() == FileFieldType::TYPE || $field->getType() == ImageFieldType::TYPE) {
                 return $field;
             }
         } else {

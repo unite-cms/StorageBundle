@@ -11,6 +11,11 @@ services:
         tags: [united_cms.field_type]
         arguments: ['@router.default', '%kernel.secret%', '@united.cms.storage.service']
 
+    # A image upload field.
+    UnitedCMS\StorageBundle\Field\Types\ImageFieldType:
+        tags: [united_cms.field_type]
+        arguments: ['@router.default', '%kernel.secret%', '@united.cms.storage.service']
+
     # A file graphQL schema object type.
     UnitedCMS\StorageBundle\SchemaType\StorageFileType:
         tags: [united_cms.graphql.schema_type]
